@@ -197,6 +197,11 @@ def sx_expectation(site_i, vector, L):
                    [1., 0.]])
     return single_site_expectation(site_i, vector, L, Oi)
 
+def sy_expectation(site_i, vector, L):
+    Oi = np.array([[0., -1.j],
+                   [1.j, 0.]])
+    return single_site_expectation(site_i, vector, L, Oi)
+
 def single_site_expectation(site_i, vector, L, Oi, conj_vec=None):
     full_O = scipy.sparse.kron(scipy.sparse.eye(2 ** (site_i - 1)), Oi)
     full_O = scipy.sparse.kron(full_O, scipy.sparse.eye(2 ** (L - site_i)))
@@ -444,11 +449,6 @@ def gen_H_2d_Kitaev(Lx, Ly, Jx=1, Jy=0, Jz=0, PBC=False):
     H = scipy.sparse.csr_matrix(H)
     return H
 
-
-
-
-
-
 def gen_H_2d_Ising(Lx, Ly, J=1., h=0., PBC=False):
     '''
     H = -J sigma_z sigma_z - h sigma_x
@@ -586,7 +586,7 @@ if __name__ == "__main__":
         print('Energy : ', evals_small / Lx / Ly / 4.)
     elif model == '1dIsing':
         L, J, g, h = sys.argv[2:]
-        # Solving -J szsz + g sx + h sz
+        # Solving -J szsz - g sx - h sz
         L, J, g, h = int(L), float(J), float(g), float(h)
         N = L
         print("python 1dIsing L=%d, J=%f, g=%f, h=%f" % (L, J, g, h))
@@ -595,7 +595,7 @@ if __name__ == "__main__":
         print("Energy : ", evals_small / L)
     elif model == '1dIsing_TE_rand':
         L, J, g, h = sys.argv[2:]
-        # Solving -J szsz + g sx + h sz
+        # Solving -J szsz - g sx - h sz
         L, J, g, h = int(L), float(J), float(g), float(h)
         N = L
         print("python 1dIsing L=%d, J=%f, g=%f, h=%f" % (L, J, g, h))
@@ -651,93 +651,92 @@ if __name__ == "__main__":
         plt.show()
     elif model == '1dIsing_TE':
         L, J, g, h = sys.argv[2:]
-        # Solving -J szsz + g sx + h sz
+        # Solving -J szsz - g sx - h sz
         L, J, g, h = int(L), float(J), float(g), float(h)
         N = L
         print("python 1dIsing L=%d, J=%f, g=%f, h=%f" % (L, J, g, h))
         H = gen_H_1d_Ising(L, J, g, h)
 
-        ### Solving the ground state
-        # evals_small, evecs_small = eigsh(H, 6, which='SA')
-        # print(evals_small / L)
-        # H_list = gen_local_H_1d_Ising(L, J, g, h)
+        te_type = 'local'
+        if te_type == 'local':
+            ##########################################
+            ### Time evolution of local excitation ###
+            ##########################################
+            ### Solving the ground state
+            evals_small, evecs_small = eigsh(H, 6, which='SA')
+            print(evals_small / L)
+            # H_list = gen_local_H_1d_Ising(L, J, g, h)
 
-        ### Creating local excitation
-        # splus = build_H_one_body([(L//2+1,1)], L, H=None, sx=True, sy=False, sz=False)
-        # splus = build_H_one_body([(L//2+1,-1j)], L, H=splus, sx=False, sy=True, sz=False)
+            ### Creating local excitation
+            # splus = build_H_one_body([(L//2+1,1)], L, H=None, sx=True, sy=False, sz=False)
+            # splus = build_H_one_body([(L//2+1,-1j)], L, H=splus, sx=False, sy=True, sz=False)
+            sy_excitation = build_H_one_body([(L//2+1,1)], L, H=None, sx=False, sy=True, sz=False)
 
-        # splus = scipy.sparse.kron(scipy.sparse.eye(2 ** (L//2+1 - 1)),
-        #                           scipy.sparse.csr_matrix(np.array([[0,0],[0,1]])))
-        # splus = scipy.sparse.kron(splus, scipy.sparse.eye(2 ** (L - L//2-1)))
+            # splus = scipy.sparse.kron(scipy.sparse.eye(2 ** (L//2+1 - 1)),
+            #                           scipy.sparse.csr_matrix(np.array([[0,0],[0,1]])))
+            # splus = scipy.sparse.kron(splus, scipy.sparse.eye(2 ** (L - L//2-1)))
+
+            psi = evecs_small[:,0]
+            psi = sy_excitation.dot(psi)
+            # psi = psi/np.linalg.norm(psi)
+            save_path = '1D_Ising_local_sy_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
+        elif te_type == 'global':
+            ##########################################
+            ### X-basis eigen-state ##
+            ##########################################
+            psi = np.ones([2**L])
+            psi = psi/np.linalg.norm(psi)
+            save_path = '1D_Ising_global_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
 
 
         dt = 0.05
-        # H = np.array(H.todense())
-        # exp_iHdt = scipy.linalg.expm(1.j * dt * H)
         total_time = 10
-        num_real = 1
 
         local_E_array=np.zeros((int(total_time/dt/10)+1, L))
 
         t_list = []
         Sx_list = []
+        Sy_list = []
+        Sz_list = []
         S2_ent_list = []
         SvN_ent_list = []
-        import matplotlib.pyplot as plt
-        for realization in range(num_real):
-            # psi = np.exp(np.random.rand(2**L))
-            # theta = np.random.rand(2**L)*2*np.pi
-            # psi = psi * np.exp(1j*theta)
-            # psi = psi/np.linalg.norm(psi)
 
-            # psi = evecs_small[:,0]
-            # psi = splus.dot(psi)
-            # psi = psi/np.linalg.norm(psi)
-            psi = np.ones([2**L])
-            psi = psi/np.linalg.norm(psi)
+        T = 0
+        # np.save('1D_Ising_TE/ED_wf_T%.2f.npy' % T, psi)
+        Sx_list.append(sx_expectation(L//2 + 1, psi, L))
+        Sy_list.append(sy_expectation(L//2 + 1, psi, L))
+        Sz_list.append(sz_expectation(L//2 + 1, psi, L))
+        S2, SvN = entanglement_entropy(L//2 + 1, psi, L)
+        S2_ent_list.append(S2)
+        SvN_ent_list.append(SvN)
+        t_list.append(T)
+        for i in range(int(total_time / dt)+1):
+            # if i % 10 ==0:
+            #     print("<E(%.2f)> : " % (i*0.05), psi.conj().T.dot(H.dot(psi)))
+            #     local_E = np.real(measure_local_H(psi, H_list))
+            #     local_E_array[i//10,:] += local_E
+            #     print("<local_E(%.2f)> : " % (i*0.05), local_E)
 
-            T = 0
-            # np.save('1D_Ising_TE/ED_wf_T%.2f.npy' % T, psi)
+            # psi = exp_iHdt.dot(psi)
+            psi = scipy.sparse.linalg.expm_multiply(-1.j*dt*H, psi)
+
+            T = T + dt
+            np.save(save_path + 'ED_wf_T%.2f.npy' % (T), psi)
+
             Sx_list.append(sx_expectation(L//2 + 1, psi, L))
+            Sy_list.append(sy_expectation(L//2 + 1, psi, L))
+            Sz_list.append(sz_expectation(L//2 + 1, psi, L))
+
+            psi_matrix = psi.reshape([2**(L//2), 2**(L//2)])
             S2, SvN = entanglement_entropy(L//2 + 1, psi, L)
             S2_ent_list.append(S2)
             SvN_ent_list.append(SvN)
             t_list.append(T)
-            for i in range(int(total_time / dt)+1):
-                # if i % 10 ==0:
-                #     print("<E(%.2f)> : " % (i*0.05), psi.conj().T.dot(H.dot(psi)))
-                #     local_E = np.real(measure_local_H(psi, H_list))
-                #     local_E_array[i//10,:] += local_E
-                #     print("<local_E(%.2f)> : " % (i*0.05), local_E)
 
-                # psi = exp_iHdt.dot(psi)
-                psi = scipy.sparse.linalg.expm_multiply(-1.j*dt*H, psi)
-
-                T = T + dt
-                np.save('1D_Ising_TE_L%d_g%.1f_h%.1f/ED_wf_T%.2f.npy' % (L, g, h, T), psi)
-
-                Sx_list.append(sx_expectation(L//2 + 1, psi, L))
-
-                psi_matrix = psi.reshape([2**(L//2), 2**(L//2)])
-                S2, SvN = entanglement_entropy(L//2 + 1, psi, L)
-                S2_ent_list.append(S2)
-                SvN_ent_list.append(SvN)
-                t_list.append(T)
-
-            data_dict = {'t_list': t_list, 'Sx_list': Sx_list,
-                         'S2_ent_list': S2_ent_list, 'SvN_ent_list': SvN_ent_list}
-            np.save('1D_Ising_TE_L%d_g%.1f_h%.1f/data_dict.npy' % (L, g, h), data_dict,
-                    allow_pickle=True)
-
-        # local_E_array = local_E_array/num_real
-        # np.save('local_E_array_L%d_.npy' % (L), local_E_array)
-        # for i in range(len(local_E_array)):
-        #     # plt.figure()
-        #     plt.plot(local_E_array[i])
-        #     # plt.savefig('step_%d.eps' % i)
-
-        # plt.legend()
-        # plt.show()
+        data_dict = {'t_list': t_list, 'Sx_list': Sx_list, 'Sy_list': Sy_list, 'Sz_list': Sz_list,
+                     'S2_ent_list': S2_ent_list, 'SvN_ent_list': SvN_ent_list}
+        np.save(save_path + 'data_dict.npy', data_dict,
+                allow_pickle=True)
 
         plt.subplot(3,1,1)
         plt.plot(Sx_list)
@@ -746,8 +745,6 @@ if __name__ == "__main__":
         plt.subplot(3,1,3)
         plt.plot(SvN_ent_list)
         plt.show()
-
-
     elif model == '2dIsing_TE':
         Lx, Ly, J, h = sys.argv[2:]
         Lx, Ly, J, h = int(Lx), int(Ly), float(J), float(h)
