@@ -180,7 +180,7 @@ def spin_spin_correlation(site_i, site_j, L, vector):
     return vector.conjugate().dot(SzSz.dot(vector))
 
 def entanglement_entropy(site_i, psi, L):
-    psi_matrix = psi.reshape([2**(L//2), 2**(L//2)])
+    psi_matrix = psi.reshape([2**(L//2), -1])
     _, s, _ = np.linalg.svd(psi_matrix, full_matrices=False)
     renyi_2 = -np.log(np.sum(s**4))
     SvN = np.sum(- (s**2) * np.log(s**2) )
@@ -727,7 +727,6 @@ if __name__ == "__main__":
             Sy_list.append(sy_expectation(L//2 + 1, psi, L))
             Sz_list.append(sz_expectation(L//2 + 1, psi, L))
 
-            psi_matrix = psi.reshape([2**(L//2), 2**(L//2)])
             S2, SvN = entanglement_entropy(L//2 + 1, psi, L)
             S2_ent_list.append(S2)
             SvN_ent_list.append(SvN)
@@ -877,7 +876,6 @@ if __name__ == "__main__":
 
                 Sx_list.append(sx_expectation(L//2 + 1, psi, L))
 
-                psi_matrix = psi.reshape([2**(L//2), 2**(L//2)])
                 S2, SvN = entanglement_entropy(L//2 + 1, psi, L)
                 S2_ent_list.append(S2)
                 SvN_ent_list.append(SvN)
