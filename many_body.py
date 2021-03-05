@@ -3,6 +3,7 @@ import scipy.sparse.linalg
 from scipy.sparse.linalg import eigsh
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 
 def gen_pair(row, V, PBC=False):
@@ -272,24 +273,24 @@ def gen_H_1d_Ising(L, J, g=0, h=0, PBC=False):
     H = build_H_one_body(sz_sites, L, H=H, sx=False, sy=False)
     return H
 
-def gen_H_1d_ZZ_X_XX(L, PBC=False):
-    # Solving -1. szsz - 1. sx - 0.25 XX
+def gen_H_1d_ZZ_X_XX(L, g=1, h=0.25, PBC=False):
+    # Solving -1. szsz - g sx - h XX
     lattice = np.arange(L, dtype=int) + 1
     print(lattice)
-    sx_sites = [(i, -1.) for i in range(1, L+1)]
+    sx_sites = [(i, -g) for i in range(1, L+1)]
     szsz_pairs = []
     sxsx_pairs = []
     if PBC:
         for i in range(1, L + 1):
             szsz_pairs = szsz_pairs + [(i, (i % L) + 1, -1)]
-            sxsx_pairs = sxsx_pairs + [(i, (i % L) + 1, -0.25)]
+            sxsx_pairs = sxsx_pairs + [(i, (i % L) + 1, -h)]
     else:
         for i in range(1, L):
             szsz_pairs = szsz_pairs + [(i, (i % L) + 1, -1)]
-            sxsx_pairs = sxsx_pairs + [(i, (i % L) + 1, -0.25)]
+            sxsx_pairs = sxsx_pairs + [(i, (i % L) + 1, -h)]
 
     print('all szsz pairs', szsz_pairs)
-    print('all sxsx pairs', szsz_pairs)
+    print('all sxsx pairs', sxsx_pairs)
     H = build_H_two_body(szsz_pairs, L, sxsx=False, sysy=False, szsz=True)
     H = build_H_two_body(sxsx_pairs, L, H=H, sxsx=True, sysy=False, szsz=False)
     H = build_H_one_body(sx_sites, L, H=H, sy=False, sz=False)
@@ -621,7 +622,13 @@ if __name__ == "__main__":
         # Solving -J szsz - g sx - h sz
         L, J, g, h = int(L), float(J), float(g), float(h)
         N = L
-        print("python 1dIsing L=%d, J=%f, g=%f, h=%f" % (L, J, g, h))
+        PBC=False
+        if PBC:
+            PBC_str = '_PBC'
+        else:
+            PBC_str = ''
+
+        print("python 1dIsing L=%d, J=%f, g=%f, h=%f %s" % (L, J, g, h, PBC_str))
         H = gen_H_1d_Ising(L, J, g, h)
         evals_small, evecs_small = eigsh(H, 6, which='SA')
         print(evals_small / L)
@@ -673,12 +680,20 @@ if __name__ == "__main__":
         plt.legend()
         plt.show()
     elif model == '1dZZ_X_XX_TE':
-        L = sys.argv[2]
+        L, g, h = sys.argv[2:]
+        L, g, h = int(L), float(g), float(h)
         # Solving -1. ZZ - 1. X - 0.25 XX
-        L = int(L)
+        # Solving -1. ZZ - g. X - h XX
         N = L
-        print("python 1d ZZ_X_XX L=%d" % (L))
-        H = gen_H_1d_ZZ_X_XX(L, PBC=True)
+        print("python 1d ZZ_X_XX L=%d, -ZZ -%.2fX -%.2fXX" % (L, g, h))
+
+        PBC=False
+        if PBC:
+            PBC_str = '_PBC'
+        else:
+            PBC_str = ''
+
+        H = gen_H_1d_ZZ_X_XX(L, g, h, PBC=PBC)
 
         te_type = 'global'
         if te_type == 'local':
@@ -701,18 +716,23 @@ if __name__ == "__main__":
             psi = evecs_small[:,0]
             psi = sy_excitation.dot(psi)
             # psi = psi/np.linalg.norm(psi)
-            save_path = '1D_ZZ_X_XX_local_sy_TE_L%d/' % (L)
+            save_path = 'wavefunction/1D_ZZ_%.2fX_%.2fXX_local_sy_TE_L%d%s/' % (g, h, L, PBC_str)
         elif te_type == 'global':
             ##########################################
             ### X-basis eigen-state ##
             ##########################################
             psi = np.ones([2**L])
             psi = psi/np.linalg.norm(psi)
-            save_path = '1D_ZZ_X_XX_global_TE_L%d_PBC/' % (L)
+            save_path = 'wavefunction/1D_ZZ_%.2fX_%.2fXX_global_TE_L%d%s/' % (g, h, L, PBC_str)
 
 
-        dt = 0.02
-        total_time = 3.
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        dt = 0.04
+        total_time = 4.
+        # dt = 0.1
+        # total_time = 10
 
         local_E_array=np.zeros((int(total_time/dt/10)+1, L))
 
@@ -779,13 +799,20 @@ if __name__ == "__main__":
         plt.plot(SvN_ent_list)
         plt.show()
 
-    elif model == '1dIsing_TE':
+    elif model == '1dIsing_TE' or model == '1dZZ_X_Z_TE':
         L, J, g, h = sys.argv[2:]
         # Solving -J szsz - g sx - h sz
         L, J, g, h = int(L), float(J), float(g), float(h)
         N = L
-        print("python 1dIsing L=%d, J=%f, g=%f, h=%f" % (L, J, g, h))
-        H = gen_H_1d_Ising(L, J, g, h, PBC=False)
+
+        PBC=False
+        if PBC:
+            PBC_str = '_PBC'
+        else:
+            PBC_str = ''
+
+        print("python 1dIsing L=%d, J=%f, g=%f, h=%f, %s" % (L, J, g, h, PBC_str))
+        H = gen_H_1d_Ising(L, J, g, h, PBC=PBC)
 
         te_type = 'global'
         if te_type == 'local':
@@ -809,18 +836,21 @@ if __name__ == "__main__":
             psi = evecs_small[:,0]
             psi = sy_excitation.dot(psi)
             # psi = psi/np.linalg.norm(psi)
-            save_path = '1D_Ising_local_sy_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
+            save_path = 'wavefunction/1D_Ising_local_sy_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
         elif te_type == 'global':
             ##########################################
             ### X-basis eigen-state ##
             ##########################################
             psi = np.ones([2**L])
             psi = psi/np.linalg.norm(psi)
-            save_path = '1D_Ising_global_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
+            # save_path = '1D_Ising_global_TE_L%d_g%.1f_h%.1f/' % (L, g, h)
+            save_path = 'wavefunction/1D_ZZ_%.2fX_%.2fZ_global_TE_L%d%s/' % (g, h, L, PBC_str)
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
 
-
-        dt = 0.02
+        dt = 0.05
         total_time = 5
 
         local_E_array=np.zeros((int(total_time/dt/10)+1, L))
@@ -873,6 +903,7 @@ if __name__ == "__main__":
         np.save(save_path + 'data_dict.npy', data_dict,
                 allow_pickle=True)
 
+        exit()
         plt.subplot(1,2,1)
         plt.imshow(np.array(Sxarray_list).real)
         plt.subplot(1,2,2)
