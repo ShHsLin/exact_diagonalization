@@ -919,6 +919,102 @@ if __name__ == "__main__":
         plt.plot(SvN_ent_list)
         plt.show()
     elif model == '2dIsing_TE':
+        PBC=False
+        if PBC:
+            PBC_str = '_PBC'
+        else:
+            PBC_str = ''
+
+        Lx, Ly, J, g = sys.argv[2:]
+        Lx, Ly, J, g = int(Lx), int(Ly), float(J), float(g )
+        N = Lx * Ly
+        print("python 2dIsing Lx=%d, Ly=%d, J=%f, g=%f" % (Lx, Ly, J, g))
+        H = gen_H_2d_Ising(Lx, Ly, J, g, PBC=PBC)
+
+        te_type = 'global'
+        ##########################################
+        ### X-basis eigen-state ##
+        ##########################################
+        psi = np.ones([2**(Lx*Ly)])
+        psi = psi/np.linalg.norm(psi)
+        save_path = 'wavefunction/2D_ZZ_%.2fX_global_TE_L%dx%d%s/' % (g, Lx, Ly, PBC_str)
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+
+        dt = 0.05
+        total_time = 4
+
+        local_E_array=np.zeros((int(total_time/dt/10)+1, N))
+
+        t_list = []
+        Sx_list = []
+        Sy_list = []
+        Sz_list = []
+        Sxarray_list = []
+        Szarray_list = []
+        S2_ent_list = []
+        SvN_ent_list = []
+
+        T = 0
+        Sx_list.append(sx_expectation(N//2 + 1 - (Lx//2), psi, N))
+        Sy_list.append(sy_expectation(N//2 + 1 - (Lx//2), psi, N))
+        Sz_list.append(sz_expectation(N//2 + 1 - (Lx//2), psi, N))
+        Sxarray_list.append([sx_expectation(i+1, psi, N) for i in range(N)])
+        Szarray_list.append([sz_expectation(i+1, psi, N) for i in range(N)])
+        S2, SvN = entanglement_entropy(N//2, psi, N)
+        S2_ent_list.append(S2)
+        SvN_ent_list.append(SvN)
+        t_list.append(T)
+        for i in range(int(total_time / dt)+1):
+            # if i % 10 ==0:
+            #     print("<E(%.2f)> : " % (i*0.05), psi.conj().T.dot(H.dot(psi)))
+            #     local_E = np.real(measure_local_H(psi, H_list))
+            #     local_E_array[i//10,:] += local_E
+            #     print("<local_E(%.2f)> : " % (i*0.05), local_E)
+
+            # psi = exp_iHdt.dot(psi)
+            psi = scipy.sparse.linalg.expm_multiply(-1.j*dt*H, psi)
+
+            T = T + dt
+            np.save(save_path + 'ED_wf_T%.2f.npy' % (T), psi)
+
+            Sx_list.append(sx_expectation(N//2 + 1 - (Lx//2), psi, N))
+            Sy_list.append(sy_expectation(N//2 + 1 - (Lx//2), psi, N))
+            Sz_list.append(sz_expectation(N//2 + 1 - (Lx//2), psi, N))
+            Sxarray_list.append([sx_expectation(i+1, psi, N) for i in range(N)])
+            Szarray_list.append([sz_expectation(i+1, psi, N) for i in range(N)])
+
+            S2, SvN = entanglement_entropy(N//2, psi, N)
+            S2_ent_list.append(S2)
+            SvN_ent_list.append(SvN)
+            t_list.append(T)
+
+        data_dict = {'t_list': t_list, 'Sx_list': Sx_list, 'Sy_list': Sy_list, 'Sz_list': Sz_list,
+                     'S2_ent_list': S2_ent_list, 'SvN_ent_list': SvN_ent_list}
+        np.save(save_path + 'data_dict.npy', data_dict,
+                allow_pickle=True)
+
+        plt.subplot(1,2,1)
+        plt.imshow(np.array(Sxarray_list).real)
+        plt.colorbar()
+        plt.subplot(1,2,2)
+        plt.imshow(np.array(Szarray_list).real)
+        plt.show()
+
+        # plt.show()
+        plt.subplot(3,1,1)
+        plt.plot(Sx_list)
+        plt.subplot(3,1,2)
+        plt.plot(S2_ent_list)
+        plt.subplot(3,1,3)
+        plt.plot(SvN_ent_list)
+        plt.show()
+
+
+
+    elif model == '2dIsing_TE_Spectral':
         Lx, Ly, J, h = sys.argv[2:]
         Lx, Ly, J, h = int(Lx), int(Ly), float(J), float(h)
         N = Lx * Ly
